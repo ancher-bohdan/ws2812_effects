@@ -1,0 +1,3 @@
+[submodule "Application/ws2812_driver"]
+	path = Application/ws2812_driver
+	url = git@github.com:bohdan-chupys/ws2812_driver.git
