@@ -5,6 +5,7 @@
 
 extern void led_strip_dma_ISRHandler();
 extern void led_strip_timer_ISRHandler();
+extern void adc_dma_ISRHandler();
 extern uint32_t USBD_OTG_ISR_Handler (USB_OTG_CORE_HANDLE *pdev);
 extern void TimingDelay_Decrement(void);
 
@@ -198,6 +199,16 @@ void TIM8_TRG_COM_TIM14_IRQHandler(void)
 
                 led_strip_timer_ISRHandler();
         }
+}
+
+void DMA2_Stream0_IRQHandler(void)
+{
+  if (DMA_GetITStatus(DMA2_Stream0, DMA_IT_TCIF0))
+  {
+    DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_TCIF0);
+
+    adc_dma_ISRHandler();
+  }  
 }
 
 /**

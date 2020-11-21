@@ -1,6 +1,7 @@
 #include "stm32f4xx.h"
 #include "stm32f4_discovery.h"
 #include "stm32f4_pwm_timer.h"
+#include "stm32f4_adc_driver.h"
 
 #include "usbd_usr.h"
 #include "usbd_desc.h"
@@ -9,6 +10,12 @@
 #include "usbd_audio_out_if.h"
 
 #include "adapter/adapter.h"
+
+#include <stdbool.h>
+
+extern void stm32_cfft_convert(int16_t *buf, uint16_t fft_size);
+extern void stm32_normalise_function(int16_t *buf, uint16_t size);
+void adc_sampling_wrapper(int16_t *samples, uint16_t size);
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
 
@@ -30,7 +37,7 @@ static struct source_config_function config1 =
 {
   .base.type = SOURCE_TYPE_LINEAR,
   .k = 0,
-  .b = 0,
+  .b = 100,
   .y_max = 255,
   .change_step_b = 0,
   .change_step_k = 0
@@ -40,14 +47,29 @@ static struct source_config_function config2 =
 {
   .base.type = SOURCE_TYPE_LINEAR,
   .k = 0,
-  .b = 0,
+  .b = 100,
   .y_max = 255,
   .change_step_b = 0,
   .change_step_k = 0
 };
 
+static struct source_config_music music = 
+{
+  .base.type = SOURCE_TYPE_MUSIC,
+  .is_fft_conversion_async = false,
+  .is_sampling_async = true,
+  .sampling_fnc = adc_sampling_wrapper,
+  .fft_convert_fnc = stm32_cfft_convert,
+  .normalise_fnc = stm32_normalise_function
+};
+
 void Delay(__IO uint32_t nTime);
 
+void adc_sampling_wrapper(int16_t *samples, uint16_t size)
+{
+  ADC_ContinuousModeCmd(ADC1, ENABLE);
+  adc_start((uint16_t *)samples, size);
+}
 
 void USBAudioInit(unsigned long UnsignedLongInteger)
 {
@@ -102,7 +124,7 @@ static struct ws2812_operation_fn_table fn =
 int main(void)
 {
   RCC_ClocksTypeDef RCC_Clocks;
-  struct source_config *first = (struct source_config *)(&config0);
+  struct source_config *first = (struct source_config *)(&music);
   struct source_config *second = (struct source_config *)(&config1);
   struct source_config *third = (struct source_config *)(&config2);
 
@@ -122,8 +144,11 @@ int main(void)
   }
 
   timer_pwm_init();
+  adc_init();
 
-  ws2812_adapter = adapter_init(&fn, RGB, CONFIG_DELAY_MS);
+  adc_on();
+
+  ws2812_adapter = adapter_init(&fn, HSV, CONFIG_DELAY_MS);
   adapter_set_source_originator_from_config(ws2812_adapter, first, second, third);
 
   USBAudioInit(0);
@@ -157,6 +182,13 @@ void led_strip_dma_ISRHandler()
 void led_strip_timer_ISRHandler()
 {
   ws2812_adapter->base.timer_interrupt(&ws2812_adapter->base);
+}
+
+void adc_dma_ISRHandler()
+{
+  ADC_ContinuousModeCmd(ADC1, DISABLE);
+  ADC_DMACmd(ADC1, DISABLE);
+  sampling_async_finish(ws2812_adapter->aggregator->first);
 }
 
 #ifdef  USE_FULL_ASSERT
