@@ -114,3 +114,9 @@ void adc_start(uint16_t *samples_buffer, uint32_t samples_number)
     DMA_Cmd(DMA2_Stream0, ENABLE);
     ADC_SoftwareStartConv(ADC1);
 }
+
+void adc_sampling_wrapper(int16_t *samples, uint16_t size)
+{
+  ADC_ContinuousModeCmd(ADC1, ENABLE);
+  adc_start((uint16_t *)samples, size);
+}

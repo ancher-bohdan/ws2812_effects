@@ -15,7 +15,7 @@
 
 extern void stm32_cfft_convert(int16_t *buf, uint16_t fft_size);
 extern void stm32_normalise_function(int16_t *buf, uint16_t size);
-void adc_sampling_wrapper(int16_t *samples, uint16_t size);
+void Delay(__IO uint32_t nTime);
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
 
@@ -63,14 +63,6 @@ static struct source_config_music music =
   .normalise_fnc = stm32_normalise_function
 };
 
-void Delay(__IO uint32_t nTime);
-
-void adc_sampling_wrapper(int16_t *samples, uint16_t size)
-{
-  ADC_ContinuousModeCmd(ADC1, ENABLE);
-  adc_start((uint16_t *)samples, size);
-}
-
 void USBAudioInit(unsigned long UnsignedLongInteger)
 {
 	USBD_Init(    UnsignedLongInteger,
@@ -83,33 +75,6 @@ void USBAudioInit(unsigned long UnsignedLongInteger)
 				  &USR_desc,
 				  &AUDIO_cb,
 				  &USR_cb);
-}
-
-void TIM_start()
-{
-        TIM_Cmd(TIM14, ENABLE);
-}
-
-void TIM_stop()
-{
-        TIM_Cmd(TIM14, DISABLE);
-}
-
-void start_dma_wrapper(void *ptr, uint16_t size)
-{
-        DMA1_Stream5->M0AR = (uint32_t)ptr;
-        DMA1_Stream5->NDTR = (uint32_t)size;
-        DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_HTIF5 | DMA_IT_TCIF5);
-        DMA_ITConfig(DMA1_Stream5, DMA_IT_TC | DMA_IT_HT, ENABLE);
-        DMA_Cmd(DMA1_Stream5, ENABLE);
-        TIM_Cmd(TIM2, ENABLE);
-}
-
-void stop_dma_wrapper()
-{
-        DMA_ITConfig(DMA1_Stream5, DMA_IT_TC | DMA_IT_HT, DISABLE);
-        DMA_Cmd(DMA1_Stream5, DISABLE);
-        TIM_Cmd(TIM2, DISABLE);
 }
 
 static struct ws2812_operation_fn_table fn = 
