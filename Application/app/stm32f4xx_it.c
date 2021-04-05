@@ -1,7 +1,6 @@
 #include "stm32f4xx.h"
 
-#include "usb_core.h"
-#include "usbd_core.h"
+#include "usbd_cdc_core.h"
 
 extern void led_strip_dma_ISRHandler();
 extern void led_strip_timer_ISRHandler();
@@ -163,8 +162,30 @@ void OTG_HS_IRQHandler(void)
 void OTG_FS_IRQHandler(void)
 #endif
 {
-  USBD_OTG_ISR_Handler (&USB_OTG_dev);
+  USBD_OTG_ISR_Handler(&USB_OTG_dev);
 }
+
+#ifdef USB_OTG_HS_DEDICATED_EP1_ENABLED
+/**
+  * @brief  This function handles EP1_IN Handler.
+  * @param  None
+  * @retval None
+  */
+void OTG_HS_EP1_IN_IRQHandler(void)
+{
+  USBD_OTG_EP1IN_ISR_Handler(&USB_OTG_dev);
+}
+
+/**
+  * @brief  This function handles EP1_OUT Handler.
+  * @param  None
+  * @retval None
+  */
+void OTG_HS_EP1_OUT_IRQHandler(void)
+{
+  USBD_OTG_EP1OUT_ISR_Handler(&USB_OTG_dev);
+}
+#endif
 
 /**
   * @brief  This function handles External line 1 interrupt request.
