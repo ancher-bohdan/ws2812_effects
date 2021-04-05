@@ -1,13 +1,12 @@
 #include "stm32f4xx.h"
-#include "stm32f4_discovery.h"
+#include "stm324xg_eval.h"
 #include "stm32f4_pwm_timer.h"
 #include "stm32f4_adc_driver.h"
 
+#include "usbd_cdc_core.h"
 #include "usbd_usr.h"
+#include "usb_conf.h"
 #include "usbd_desc.h"
-
-#include "usbd_audio_core.h"
-#include "usbd_audio_out_if.h"
 
 #include "adapter/adapter.h"
 
@@ -63,18 +62,15 @@ static struct source_config_music music =
   .normalise_fnc = stm32_normalise_function
 };
 
-void USBAudioInit(unsigned long UnsignedLongInteger)
+void USBAudioInit()
 {
-	USBD_Init(    UnsignedLongInteger,
-				  &USB_OTG_dev,
+  USBD_Init(&USB_OTG_dev,
 #ifdef USE_USB_OTG_HS
-				  USB_OTG_HS_CORE_ID,
+            USB_OTG_HS_CORE_ID,
 #else
-				  USB_OTG_FS_CORE_ID,
+            USB_OTG_FS_CORE_ID,
 #endif
-				  &USR_desc,
-				  &AUDIO_cb,
-				  &USR_cb);
+            &USR_desc, &USBD_CDC_cb, &USR_cb);
 }
 
 static struct ws2812_operation_fn_table fn = 
@@ -96,8 +92,6 @@ int main(void)
   /* Initialize LEDS */
   STM_EVAL_LEDInit(LED3);
   STM_EVAL_LEDInit(LED4);
-  STM_EVAL_LEDInit(LED5);
-  STM_EVAL_LEDInit(LED6);
        
   /* SysTick end of count event each 10ms */
   RCC_GetClocksFreq(&RCC_Clocks);
@@ -116,7 +110,7 @@ int main(void)
   ws2812_adapter = adapter_init(&fn, HSV, CONFIG_DELAY_MS);
   adapter_set_source_originator_from_config(ws2812_adapter, first, second, third);
 
-  USBAudioInit(0);
+  USBAudioInit();
 
   while (1)
   {
