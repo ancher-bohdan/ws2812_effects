@@ -3,10 +3,14 @@
 #include "stm32f4_pwm_timer.h"
 #include "stm32f4_adc_driver.h"
 
-#include "usbd_cdc_core.h"
+/*#include "usbd_cdc_core.h"
 #include "usbd_usr.h"
 #include "usb_conf.h"
-#include "usbd_desc.h"
+#include "usbd_desc.h"*/
+
+#include "usbd_audio_core.h"
+#include "usbd_usr.h"
+#include "usb_conf.h"
 
 #include "adapter/adapter.h"
 
@@ -64,13 +68,20 @@ static struct source_config_music music =
 
 void USBAudioInit()
 {
-  USBD_Init(&USB_OTG_dev,
+/*  USBD_Init(&USB_OTG_dev,
 #ifdef USE_USB_OTG_HS
             USB_OTG_HS_CORE_ID,
 #else
             USB_OTG_FS_CORE_ID,
 #endif
-            &USR_desc, &USBD_CDC_cb, &USR_cb);
+            &USR_desc, &USBD_CDC_cb, &USR_cb);*/
+  USBD_Init(&USB_OTG_dev,
+#ifdef USE_USB_OTG_HS
+            USB_OTG_HS_CORE_ID,
+#else
+            USB_OTG_FS_CORE_ID, 
+#endif
+            &USR_desc, &AUDIO_cb, &USR_cb);
 }
 
 static struct ws2812_operation_fn_table fn = 
