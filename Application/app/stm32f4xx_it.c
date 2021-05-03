@@ -1,6 +1,8 @@
 #include "stm32f4xx.h"
 
-#include "usbd_cdc_core.h"
+#include "usb_core.h"
+#include "usbd_core.h"
+#include "usbd_audio_core.h"
 
 extern void led_strip_dma_ISRHandler();
 extern void led_strip_timer_ISRHandler();

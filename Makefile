@@ -40,14 +40,16 @@ SOURCES_CMSIS = $(wildcard Libraries/CMSIS/Device/ST/STM32F4xx/Source/Templates/
 SOURCES_APP = $(wildcard Application/app/*.c)
 SOURCES_DRIVERS = $(wildcard Application/drivers/*.c)
 SOURCES_USB = $(wildcard USB/STM32_USB_Device_Library/Core/src/*.c)
-SOURCES_USB_CLASS = $(wildcard USB/STM32_USB_Device_Library/Class/cdc/src/*.c)
+SOURCES_USB_CLASS = $(wildcard USB/STM32_USB_Device_Library/Class/audio/src/*.c)
+#				$(wildcard USB/STM32_USB_Device_Library/Class/cdc/src/*.c)
+SOURCES_USB_APP = $(wildcard Application/usb/audio/src/*.c)
+#				$(wildcard Application/usb/virtual_com_port/src/*.c)
 SOURCES_USB_OTG = $(wildcard USB/STM32_USB_OTG_Driver/src/*.c)
-SOURCES_USB_VIRTUAL_COM_PORT = $(wildcard Application/usb/virtual_com_port/src/*.c)
 SOURCES_WS_ADAPTER = $(wildcard Application/ws2812_driver/src/adapter/*.c)
 SOURCES_WS_DRIVER = $(wildcard Application/ws2812_driver/src/driver/*.c)
 SOURCES_WS_SOURCE = $(wildcard Application/ws2812_driver/src/source/*.c)
 
-C_SOURCES = $(SOURCES_TMP) $(SOURCES_STD_PERIPH) $(SOURCES_CMSIS) $(SOURCES_APP) $(SOURCES_DRIVERS) $(SOURCES_USB) $(SOURCES_USB_CLASS) $(SOURCES_USB_OTG) $(SOURCES_USB_VIRTUAL_COM_PORT) $(SOURCES_WS_ADAPTER) $(SOURCES_WS_DRIVER) $(SOURCES_WS_SOURCE)
+C_SOURCES = $(SOURCES_TMP) $(SOURCES_STD_PERIPH) $(SOURCES_CMSIS) $(SOURCES_APP) $(SOURCES_DRIVERS) $(SOURCES_USB) $(SOURCES_USB_CLASS) $(SOURCES_USB_OTG) $(SOURCES_USB_APP) $(SOURCES_WS_ADAPTER) $(SOURCES_WS_DRIVER) $(SOURCES_WS_SOURCE)
 
 
 # ASM sources
@@ -115,9 +117,9 @@ C_INCLUDES =  \
 -ILibraries/CMSIS/Device/ST/STM32F4xx/Include \
 -ILibraries/STM32F4xx_StdPeriph_Driver/inc \
 -IUSB/STM32_USB_OTG_Driver/inc \
--IUSB/STM32_USB_Device_Library/Class/cdc/inc \
+-IUSB/STM32_USB_Device_Library/Class/audio/inc \
 -IUSB/STM32_USB_Device_Library/Core/inc \
--IApplication/usb/virtual_com_port/inc \
+-IApplication/usb/audio/inc \
 -IApplication/ws2812_driver/inc
 
 
