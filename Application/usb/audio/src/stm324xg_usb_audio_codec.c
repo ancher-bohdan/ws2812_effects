@@ -404,11 +404,11 @@ uint32_t Codec_Init(uint16_t OutputDevice, uint8_t Volume, uint32_t AudioFreq)
 {
   uint32_t counter = 0;
 
-  /* Reset the Codec Registers */
-  Codec_Reset();
-
   /* Configure the Codec related IOs */
   Codec_GPIO_Init();
+
+  /* Reset the Codec Registers */
+  Codec_Reset();
 
   /* Initialize the Control interface of the Audio Codec */
   Codec_CtrlInterface_Init();
@@ -1065,7 +1065,7 @@ static void Codec_GPIO_Init(void)
   /* CODEC_I2C SCL and SDA pins configuration
    * ------------------------------------- */
   /* If the I2C peripheral is already enabled, don't reconfigure it */
-  if (CODEC_I2C->CR1 & I2C_CR1_PE)
+  if (!(CODEC_I2C->CR1 & I2C_CR1_PE))
   {
     GPIO_InitStructure.GPIO_Pin = CODEC_I2C_SCL_PIN | CODEC_I2C_SDA_PIN;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
@@ -1355,10 +1355,10 @@ void Audio_MAL_PauseResume(uint32_t Cmd, uint32_t Addr, uint32_t Size)
 
 #else                           /* #if !defined(USE_DMA_PAUSE_FEATURE) */
     /* Stop the current DMA request by resetting the I2S cell */
-    //Codec_AudioInterface_DeInit();
+    Codec_AudioInterface_DeInit();
 
     /* Re-configure the I2S interface for the next resume operation */
-    //Codec_AudioInterface_Init(I2S_InitStructure.I2S_AudioFreq);
+    Codec_AudioInterface_Init(I2S_InitStructure.I2S_AudioFreq);
 
     /* Disable the DMA Stream */
     DMA_Cmd(AUDIO_MAL_DMA_STREAM, DISABLE);
