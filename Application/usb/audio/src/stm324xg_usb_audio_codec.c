@@ -1210,8 +1210,8 @@ void Audio_MAL_Init(void)
 #error "AUDIO_MAL_MODE_NORMAL or AUDIO_MAL_MODE_CIRCULAR should be selected !!"
 #endif                          /* AUDIO_MAL_MODE_NORMAL */
   DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
+  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
+  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
   DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
   DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
   DMA_Init(AUDIO_MAL_DMA_STREAM, &DMA_InitStructure);
@@ -1292,7 +1292,7 @@ void Audio_MAL_Play(uint32_t Addr, uint32_t Size)
 
   /* Configure the buffer address and size */
   DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t) Addr;
-  DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size * 2);
+  DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size);
 
   /* Configure the DMA Stream with the new parameters */
   DMA_Init(AUDIO_MAL_DMA_STREAM, &DMA_InitStructure);
@@ -1385,7 +1385,7 @@ void Audio_MAL_PauseResume(uint32_t Cmd, uint32_t Addr, uint32_t Size)
 #else
     /* Configure the buffer address and size */
     DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t) Addr;
-    DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size * 2);
+    DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size);
 
     /* Configure the DMA Stream with the new parameters */
     DMA_Init(AUDIO_MAL_DMA_STREAM, &DMA_InitStructure);
