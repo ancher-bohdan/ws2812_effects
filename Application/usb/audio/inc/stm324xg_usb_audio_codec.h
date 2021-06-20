@@ -143,7 +143,7 @@
  #define AUDIO_MAL_DMA_FLAG_ALL         (uint32_t)(AUDIO_MAL_DMA_FLAG_TC | AUDIO_MAL_DMA_FLAG_HT |\
                                                    AUDIO_MAL_DMA_FLAG_FE | AUDIO_MAL_DMA_FLAG_DME)
  #define AUDIO_MAL_DMA_PERIPH_DATA_SIZE DMA_PeripheralDataSize_HalfWord
- #define AUDIO_MAL_DMA_MEM_DATA_SIZE    DMA_MemoryDataSize_Word
+ #define AUDIO_MAL_DMA_MEM_DATA_SIZE    DMA_MemoryDataSize_HalfWord
  #define DMA_MAX_SZE                    0xFFFF
  #define AUDIO_MAL_DMA                  DMA1
  #define AUDIO_MAL_DMA_IFCR             HIFCR
