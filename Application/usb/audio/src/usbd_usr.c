@@ -192,16 +192,6 @@ void USBD_USR_DeviceDisconnected(void)
 }
 
 
-
-/**
-  * @brief  EVAL_AUDIO_TransferComplete_CallBack
-  * @param  None
-  * @retval None
-  */
-void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size)
-{
-}
-
 #if !defined(USE_STM324x9I_EVAL)
 /**
   * @brief  Codec_TIMEOUT_UserCallback
