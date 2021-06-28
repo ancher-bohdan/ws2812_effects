@@ -23,6 +23,8 @@
 #include "usbd_audio_core.h"
 #include "usbd_audio_out_if.h"
 
+#include "audio_buffer.h"
+
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
   * @{
   */
@@ -124,6 +126,8 @@ static uint8_t  Init         (uint32_t AudioFreq,
       return AUDIO_FAIL;
     }
     
+    um_handle_init(Audio_MAL_Play, EVAL_AUDIO_PauseResume);
+
     /* Set the Initialization flag to prevent reinitializing the interface again */
     Initialized = 1;
   }
@@ -172,78 +176,16 @@ static uint8_t  AudioCmd(uint8_t* pbuf,
   {
     /* Process the PLAY command ----------------------------*/
   case AUDIO_CMD_PLAY:
-    /* If current state is Active or Stopped */
-    if ((AudioState == AUDIO_STATE_ACTIVE) || \
-       (AudioState == AUDIO_STATE_STOPPED) || \
-       (AudioState == AUDIO_STATE_PLAYING))
-    {
-      Audio_MAL_Play((uint32_t)pbuf, (size/2));
-      AudioState = AUDIO_STATE_PLAYING;
-      return AUDIO_OK;
-    }
-    /* If current state is Paused */
-    else if (AudioState == AUDIO_STATE_PAUSED)
-    {
-#if defined (USE_STM324x9I_EVAL)
-      if (EVAL_AUDIO_PauseResume(AUDIO_RESUME) != 0)
-#else
-        if (EVAL_AUDIO_PauseResume(AUDIO_RESUME, (uint32_t)pbuf, (size/2)) != 0)
-#endif
-        {
-        AudioState = AUDIO_STATE_ERROR;
-        return AUDIO_FAIL;
-      }
-      else
-      {
-        AudioState = AUDIO_STATE_PLAYING;
-        return AUDIO_OK;
-      } 
-    } 
-    else /* Not allowed command */
-    {
-      return AUDIO_FAIL;
-    }
-    
+    AudioState = AUDIO_STATE_PLAYING;
+    um_handle_enqueue(pbuf, size);
+    return AUDIO_OK;
     /* Process the STOP command ----------------------------*/
   case AUDIO_CMD_STOP:
-    if (AudioState != AUDIO_STATE_PLAYING)
-    {
-      /* Unsupported command */
-      return AUDIO_FAIL;
-    }
-    else if (EVAL_AUDIO_Stop(CODEC_PDWN_SW) != 0)
-    {
-      AudioState = AUDIO_STATE_ERROR;
-      return AUDIO_FAIL;
-    }
-    else
-    {
-      AudioState = AUDIO_STATE_STOPPED;
-      return AUDIO_OK;
-    }
+    return AUDIO_OK;
   
     /* Process the PAUSE command ---------------------------*/
   case AUDIO_CMD_PAUSE:
-    if (AudioState != AUDIO_STATE_PLAYING)
-    {
-      /* Unsupported command */
-      return AUDIO_FAIL;
-    }
-#if defined (USE_STM324x9I_EVAL)
-    else if (EVAL_AUDIO_PauseResume(AUDIO_PAUSE) != 0)
-#else
-    else if (EVAL_AUDIO_PauseResume(AUDIO_PAUSE, (uint32_t)pbuf, (size/2)) != 0)
-#endif
-    {
-      AudioState = AUDIO_STATE_ERROR;
-      return AUDIO_FAIL;
-    }
-    else
-    {
-      AudioState = AUDIO_STATE_PAUSED;
-      return AUDIO_OK;
-    } 
-    
+    return AUDIO_OK;
     /* Unsupported command ---------------------------------*/
   default:
     return AUDIO_FAIL;

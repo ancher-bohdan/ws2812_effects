@@ -17,15 +17,14 @@ enum um_node_state
 enum um_buffer_state
 {
     UM_BUFFER_STATE_INIT = 0,
-    UM_BUFFER_STATE_ACTIVE,
+    UM_BUFFER_STATE_READY,
     UM_BUFFER_STATE_PLAY
 };
 
 struct um_node
 {
-    uint16_t *um_buf;
+    uint8_t *um_buf;
     struct um_node *next;
-    uint16_t um_node_size;
     uint8_t um_node_offset;
     enum um_node_state um_node_state;
 };
@@ -36,6 +35,17 @@ struct um_buffer_handle
     struct um_node *um_write;
     struct um_node *um_start;
     enum um_buffer_state um_buffer_state;
+    uint8_t um_abs_offset;
+
+    void (*um_play)(uint32_t addr, uint32_t size);
+    uint32_t (*um_pause_resume)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 };
+
+typedef void (*um_play_fnc)(uint32_t addr, uint32_t size);
+typedef uint32_t (*um_pause_resume_fnc)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
+
+void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume );
+void um_handle_enqueue(uint8_t *data, uint32_t size);
+void audio_dma_complete_cb();
 
 #endif

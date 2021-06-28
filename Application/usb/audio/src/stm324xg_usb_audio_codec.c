@@ -1215,6 +1215,8 @@ void Audio_MAL_Init(void)
   DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
   DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
   DMA_Init(AUDIO_MAL_DMA_STREAM, &DMA_InitStructure);
+  DMA_DoubleBufferModeConfig(AUDIO_MAL_DMA_STREAM, 0, DMA_Memory_0);
+  DMA_DoubleBufferModeCmd(AUDIO_MAL_DMA_STREAM, ENABLE);
 
   /* Enable the selected DMA interrupts (selected in "stm32_eval_audio_codec.h" 
    * defines) */
@@ -1292,10 +1294,13 @@ void Audio_MAL_Play(uint32_t Addr, uint32_t Size)
 
   /* Configure the buffer address and size */
   DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t) Addr;
-  DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size);
+  DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size >> 1);
 
   /* Configure the DMA Stream with the new parameters */
   DMA_Init(AUDIO_MAL_DMA_STREAM, &DMA_InitStructure);
+  DMA_DoubleBufferModeConfig(AUDIO_MAL_DMA_STREAM, Addr + Size, DMA_Memory_0);
+  DMA_DoubleBufferModeCmd(AUDIO_MAL_DMA_STREAM, ENABLE);
+
 
   /* Enable the I2S DMA Stream */
   DMA_Cmd(AUDIO_MAL_DMA_STREAM, ENABLE);
@@ -1385,10 +1390,12 @@ void Audio_MAL_PauseResume(uint32_t Cmd, uint32_t Addr, uint32_t Size)
 #else
     /* Configure the buffer address and size */
     DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t) Addr;
-    DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size);
+    DMA_InitStructure.DMA_BufferSize = (uint32_t) (Size >> 1);
 
     /* Configure the DMA Stream with the new parameters */
     DMA_Init(AUDIO_MAL_DMA_STREAM, &DMA_InitStructure);
+    DMA_DoubleBufferModeConfig(AUDIO_MAL_DMA_STREAM, Addr + Size, DMA_Memory_0);
+    DMA_DoubleBufferModeCmd(AUDIO_MAL_DMA_STREAM, ENABLE);
 
     /* Enable the I2S DMA Stream */
     DMA_Cmd(AUDIO_MAL_DMA_STREAM, ENABLE);
