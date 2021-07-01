@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define NODE_SUBBUF_COUNT   (UM_NODE_COUNT * NUMBER_OF_USB_FRAMES_IN_UM_NODE)
 
@@ -86,11 +87,11 @@ void um_handle_enqueue(uint8_t *data, uint32_t size)
             um_handle.um_start->um_node_state = UM_NODE_STATE_I2S;
             if(um_handle.um_buffer_state == UM_BUFFER_STATE_INIT)
             {
-                um_handle.um_play(um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
+                um_handle.um_play((uint32_t)um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
             }
             else /* UM_BUFFER_STATE_READY */
             {
-                um_handle.um_pause_resume(1, um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
+                um_handle.um_pause_resume(1, (uint32_t)um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
             }
             um_handle.um_buffer_state = UM_BUFFER_STATE_PLAY;
         }
@@ -123,7 +124,7 @@ void audio_dma_complete_cb()
         }
         // else, same handle as for UM_NODE_STATE_FREE state
     case UM_NODE_STATE_FREE:
-        um_handle.um_pause_resume(0, um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
+        um_handle.um_pause_resume(0, (uint32_t)um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
         um_handle.um_write->um_node_offset = 0;
         um_handle.um_write->um_node_state = UM_NODE_STATE_FREE;
         um_handle.um_write = um_handle.um_read = um_handle.um_start;
@@ -134,7 +135,7 @@ void audio_dma_complete_cb()
     case UM_NODE_STATE_READY:
         um_handle.um_read->um_node_state = UM_NODE_STATE_I2S;
         break;
-    
+    case UM_NODE_STATE_I2S:
     default:
         /* State machine error */
         while(1) {}
