@@ -6,6 +6,18 @@
 #define NUMBER_OF_USB_FRAMES_IN_UM_NODE     4
 #define UM_NODE_COUNT                       4
 
+#define CW_LOWER_BOUND                      1
+#define CW_UPPER_BOUND                      3
+
+#define UM_BUFFER_FLAG_CONGESTION_AVIODANCE 0x2
+#define UM_BUFFER_FLAG_HALF_USB_FRAME       0x1
+
+#define GET_CONGESTION_AVOIDANCE_FLAG(flag) ((flag) & UM_BUFFER_FLAG_CONGESTION_AVIODANCE)
+#define GET_HALF_USB_FRAME_FLAG(flag)       ((flag) & UM_BUFFER_FLAG_HALF_USB_FRAME)
+
+#define TOGGLE_CONGESTION_AVOIDANCE_FLAG(flag)  (flag) = ((flag) ^ UM_BUFFER_FLAG_CONGESTION_AVIODANCE)
+#define TOGGLE_HALF_USB_FRAME_FLAG(flag)        (flag) = ((flag) ^ UM_BUFFER_FLAG_HALF_USB_FRAME)
+
 enum um_node_state
 {
     UM_NODE_STATE_FREE = 0,
@@ -36,6 +48,7 @@ struct um_buffer_handle
     struct um_node *um_start;
     enum um_buffer_state um_buffer_state;
     uint8_t um_abs_offset;
+    uint8_t um_buffer_flags;
 
     void (*um_play)(uint32_t addr, uint32_t size);
     uint32_t (*um_pause_resume)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
