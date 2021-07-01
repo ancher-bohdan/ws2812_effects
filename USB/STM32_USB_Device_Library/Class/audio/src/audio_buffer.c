@@ -34,6 +34,11 @@ static struct um_node** _alloc_um_nodes(struct um_node **prev)
     }
 }
 
+static uint8_t get_congestion_window(struct um_node *um_node_write)
+{
+    return um_node_write->um_node_state != UM_NODE_STATE_FREE ? 1 : 1 + get_congestion_window(um_node_write->next);
+}
+
 void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume )
 {
     um_handle.um_read = *_alloc_um_nodes(&(um_handle.um_start));
@@ -51,6 +56,7 @@ void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume )
     um_handle.um_write = um_handle.um_start;
     um_handle.um_buffer_state = UM_BUFFER_STATE_INIT;
     um_handle.um_abs_offset = 0;
+    um_handle.um_buffer_flags = 0;
 
     um_handle.um_play = play;
     um_handle.um_pause_resume = pause_resume;
@@ -58,26 +64,67 @@ void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume )
 
 void um_handle_enqueue(uint8_t *data, uint32_t size)
 {
-    if(um_handle.um_write->um_node_offset == 0)
+    uint8_t cw;
+
+    if((um_handle.um_write->um_node_offset == 0) && !GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
     {
         if(um_handle.um_write->um_node_state != UM_NODE_STATE_FREE)
         {
             /* Buffer overflow
             shouldn`t be here
-            as a temporary WA - drop USB packet
+            as a handle - endless loop
             */
-           return;
+           while(1) {}
         }
         um_handle.um_write->um_node_state = UM_NODE_STATE_USB;
     }
-    memcpy(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET), data, size);
-    um_handle.um_abs_offset = (um_handle.um_abs_offset + 1) % NODE_SUBBUF_COUNT;
 
-    if(++(um_handle.um_write->um_node_offset) == NUMBER_OF_USB_FRAMES_IN_UM_NODE)
+    cw = get_congestion_window(um_handle.um_write->next);
+
+    if(GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
     {
-        um_handle.um_write->um_node_offset = 0;
-        um_handle.um_write->um_node_state = UM_NODE_STATE_READY;
-        um_handle.um_write = um_handle.um_write->next;
+        if((cw == CW_UPPER_BOUND) && !GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
+            TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
+    }
+    else
+    {
+        if(cw == CW_LOWER_BOUND) TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
+    }
+
+    if(!GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
+    {
+        memcpy(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET), data, size);
+        um_handle.um_abs_offset = (um_handle.um_abs_offset + 1) % NODE_SUBBUF_COUNT;
+
+        if(++(um_handle.um_write->um_node_offset) == NUMBER_OF_USB_FRAMES_IN_UM_NODE)
+        {
+            um_handle.um_write->um_node_offset = 0;
+            um_handle.um_write->um_node_state = UM_NODE_STATE_READY;
+            um_handle.um_write = um_handle.um_write->next;
+        }
+    }
+    else /*CONGESTION AVOIDANCE in progress... */
+    {
+        uint8_t i = 0, j = 0;
+        for(i = 0; i < size; i+=8)
+        {
+            memcpy(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET) + ((AUDIO_OUT_PACKET >> 1) * GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags)) + j, data + i, 4);
+            j+=4;
+        }
+
+        if(GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
+        {
+            um_handle.um_abs_offset = (um_handle.um_abs_offset + 1) % NODE_SUBBUF_COUNT;
+
+            if(++(um_handle.um_write->um_node_offset) == NUMBER_OF_USB_FRAMES_IN_UM_NODE)
+            {
+                um_handle.um_write->um_node_offset = 0;
+                um_handle.um_write->um_node_state = UM_NODE_STATE_READY;
+                um_handle.um_write = um_handle.um_write->next;
+            }
+        }
+
+        TOGGLE_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags);
     }
 
     if(um_handle.um_buffer_state != UM_BUFFER_STATE_PLAY)
