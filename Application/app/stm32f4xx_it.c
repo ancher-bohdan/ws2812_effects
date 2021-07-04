@@ -6,7 +6,6 @@
 
 extern void led_strip_dma_ISRHandler();
 extern void led_strip_timer_ISRHandler();
-extern void adc_dma_ISRHandler();
 extern uint32_t USBD_OTG_ISR_Handler (USB_OTG_CORE_HANDLE *pdev);
 extern void TimingDelay_Decrement(void);
 
@@ -230,7 +229,6 @@ void DMA2_Stream0_IRQHandler(void)
   {
     DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_TCIF0);
 
-    adc_dma_ISRHandler();
   }  
 }
 
