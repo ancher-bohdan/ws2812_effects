@@ -39,6 +39,62 @@ static uint8_t get_congestion_window(struct um_node *um_node_write)
     return um_node_write->um_node_state != UM_NODE_STATE_FREE ? 1 : 1 + get_congestion_window(um_node_write->next);
 }
 
+static void copy_samples_to_listener(struct um_buffer_listener *listener, struct usb_sample_struct *src, uint8_t size)
+{
+    uint8_t i = 0;
+    for(i = 0; i < size; i++)
+    {
+        *(listener->dst + listener->dst_offset) = (src + i)->left_channel;
+
+        listener->dst_offset++;
+        listener->samples_required--;
+
+        if(listener->samples_required == 0)
+        {
+            listener_job_finish finish = listener->listener_finish;
+
+            listener->dst = NULL;
+            listener->dst_offset = 0;
+            listener->listener_finish = NULL;
+            listener->samples_required = 0;
+
+            finish();
+
+            return;
+        }
+    }
+}
+
+static void send_sample_to_registered_listeners(struct usb_sample_struct *usb_samples, uint8_t size)
+{
+    uint8_t i = 0;
+    for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
+    {
+        if(um_handle.listeners[i].samples_required != 0)
+        {
+            copy_samples_to_listener(&um_handle.listeners[i], usb_samples, size);
+        }
+    }
+}
+
+static void flush_all_listeners()
+{
+    uint8_t i = 0;
+    for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
+    {
+        if(um_handle.listeners[i].samples_required != 0)
+        {
+            memset(um_handle.listeners[i].dst + um_handle.listeners[i].dst_offset, 0, um_handle.listeners[i].samples_required);
+            um_handle.listeners[i].listener_finish();
+
+            um_handle.listeners[i].dst = NULL;
+            um_handle.listeners[i].dst_offset = 0;
+            um_handle.listeners[i].listener_finish = NULL;
+            um_handle.listeners[i].samples_required = 0;
+        }
+    }
+}
+
 void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume )
 {
     um_handle.um_read = *_alloc_um_nodes(&(um_handle.um_start));
@@ -90,6 +146,8 @@ void um_handle_enqueue(uint8_t *data, uint32_t size)
     {
         if(cw == CW_LOWER_BOUND) TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
     }
+
+    send_sample_to_registered_listeners((struct usb_sample_struct *)data, size >> 2);
 
     if(!GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
     {
@@ -177,6 +235,8 @@ void audio_dma_complete_cb()
         um_handle.um_write = um_handle.um_read = um_handle.um_start;
         um_handle.um_buffer_state = UM_BUFFER_STATE_READY;
         um_handle.um_abs_offset = 0;
+
+        flush_all_listeners();
         break;
 
     case UM_NODE_STATE_READY:
@@ -200,3 +260,20 @@ void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
     audio_dma_complete_cb();
 }
 
+void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk)
+{
+    uint8_t i = 0;
+    for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
+    {
+        if(um_handle.listeners[i].samples_required == 0)
+        {
+            um_handle.listeners[i].samples_required = size;
+            um_handle.listeners[i].listener_finish = job_finish_cbk;
+            um_handle.listeners[i].dst_offset = 0;
+            um_handle.listeners[i].dst = sample;
+            return;
+        }
+    }
+    //not enought space for register listener. As a handle - endless loop
+    while(1) { }
+}
