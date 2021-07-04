@@ -8,6 +8,7 @@
 #define NODE_SUBBUF_COUNT   (UM_NODE_COUNT * NUMBER_OF_USB_FRAMES_IN_UM_NODE)
 
 static uint8_t __um_buffer[UM_NODE_COUNT][AUDIO_OUT_PACKET * NUMBER_OF_USB_FRAMES_IN_UM_NODE];
+static uint8_t congestion_avoidance_bucket[AUDIO_OUT_PACKET];
 
 static struct um_buffer_handle um_handle;
 
@@ -118,9 +119,10 @@ void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume )
     um_handle.um_pause_resume = pause_resume;
 }
 
-void um_handle_enqueue(uint8_t *data, uint32_t size)
+uint8_t *um_handle_enqueue()
 {
     uint8_t cw;
+    uint8_t *result = NULL;
 
     if((um_handle.um_write->um_node_offset == 0) && !GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
     {
@@ -135,23 +137,9 @@ void um_handle_enqueue(uint8_t *data, uint32_t size)
         um_handle.um_write->um_node_state = UM_NODE_STATE_USB;
     }
 
-    cw = get_congestion_window(um_handle.um_write->next);
-
-    if(GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
-    {
-        if((cw == CW_UPPER_BOUND) && !GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
-            TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
-    }
-    else
-    {
-        if(cw == CW_LOWER_BOUND) TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
-    }
-
-    send_sample_to_registered_listeners((struct usb_sample_struct *)data, size >> 2);
-
     if(!GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
     {
-        memcpy(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET), data, size);
+        send_sample_to_registered_listeners((struct usb_sample_struct *)(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET)), AUDIO_OUT_PACKET >> 2);
         um_handle.um_abs_offset = (um_handle.um_abs_offset + 1) % NODE_SUBBUF_COUNT;
 
         if(++(um_handle.um_write->um_node_offset) == NUMBER_OF_USB_FRAMES_IN_UM_NODE)
@@ -160,13 +148,17 @@ void um_handle_enqueue(uint8_t *data, uint32_t size)
             um_handle.um_write->um_node_state = UM_NODE_STATE_READY;
             um_handle.um_write = um_handle.um_write->next;
         }
+        result = um_handle.um_write->um_buf + (um_handle.um_write->um_node_offset * AUDIO_OUT_PACKET);
     }
     else /*CONGESTION AVOIDANCE in progress... */
     {
         uint8_t i = 0, j = 0;
-        for(i = 0; i < size; i+=8)
+
+        send_sample_to_registered_listeners((struct usb_sample_struct *)(congestion_avoidance_bucket), AUDIO_OUT_PACKET >> 2);
+
+        for(i = 0; i < AUDIO_OUT_PACKET; i+=8)
         {
-            memcpy(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET) + ((AUDIO_OUT_PACKET >> 1) * GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags)) + j, data + i, 4);
+            memcpy(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET) + ((AUDIO_OUT_PACKET >> 1) * GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags)) + j, congestion_avoidance_bucket + i, 4);
             j+=4;
         }
 
@@ -183,6 +175,26 @@ void um_handle_enqueue(uint8_t *data, uint32_t size)
         }
 
         TOGGLE_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags);
+        result = congestion_avoidance_bucket;
+    }
+
+    cw = get_congestion_window(um_handle.um_write->next);
+
+    if(GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
+    {
+        if((cw == CW_UPPER_BOUND) && !GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
+        {
+            TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
+            result = um_handle.um_write->um_buf + (um_handle.um_write->um_node_offset * AUDIO_OUT_PACKET);
+        }
+    }
+    else
+    {
+        if(cw == CW_LOWER_BOUND)
+        {
+            TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
+            result = congestion_avoidance_bucket;
+        }
     }
 
     if(um_handle.um_buffer_state != UM_BUFFER_STATE_PLAY)
@@ -201,6 +213,7 @@ void um_handle_enqueue(uint8_t *data, uint32_t size)
             um_handle.um_buffer_state = UM_BUFFER_STATE_PLAY;
         }
     }
+    return result;
 }
 
 void audio_dma_complete_cb()
@@ -276,4 +289,9 @@ void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener
     }
     //not enought space for register listener. As a handle - endless loop
     while(1) { }
+}
+
+struct um_buffer_handle *get_um_buffer_handle()
+{
+    return &um_handle;
 }

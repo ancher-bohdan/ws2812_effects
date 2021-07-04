@@ -73,7 +73,7 @@
 /* Includes ------------------------------------------------------------------*/
 
 #include "usbd_audio_core.h"
-#include "usbd_audio_out_if.h"
+#include "audio_buffer.h"
 
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
   * @{
@@ -137,19 +137,13 @@ static uint8_t  *USBD_audio_GetCfgDesc (uint8_t speed, uint16_t *length);
 
 /** @defgroup usbd_audio_Private_Variables
   * @{
-  */ 
-/* Main Buffer for Audio Data Out transfers and its relative pointers */
-uint8_t  IsocOutBuff [TOTAL_OUT_BUF_SIZE * 2];
-uint8_t* IsocOutWrPtr = IsocOutBuff;
-uint8_t* IsocOutRdPtr = IsocOutBuff;
+  */
 
 /* Main Buffer for Audio Control Requests transfers and its relative variables */
 uint8_t  AudioCtl[64];
 uint8_t  AudioCtlCmd = 0;
 uint32_t AudioCtlLen = 0;
 uint8_t  AudioCtlUnit = 0;
-
-static uint32_t PlayFlag = 0;
 
 static __IO uint32_t  usbd_audio_AltSet = 0;
 static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE];
@@ -330,6 +324,54 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   */ 
 
 /**
+  * @brief  Init
+  *         Initialize and configures all required resources for audio play function.
+  * @param  AudioFreq: Startup audio frequency. 
+  * @param  Volume: Startup volume to be set.
+  * @param  options: specific options passed to low layer function.
+  * @retval AUDIO_OK if all operations succeed, AUDIO_FAIL else.
+  */
+static uint8_t  Init         (uint32_t AudioFreq, 
+                              uint32_t Volume, 
+                              uint32_t options)
+{
+  static uint32_t Initialized = 0;
+  
+  /* Check if the low layer has already been initialized */
+  if (Initialized == 0)
+  {
+    if (EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, Volume, AudioFreq) != 0)
+    {
+      return USBD_FAIL;
+    }
+    
+    um_handle_init(Audio_MAL_Play, EVAL_AUDIO_PauseResume);
+
+    /* Set the Initialization flag to prevent reinitializing the interface again */
+    Initialized = 1;
+  }
+
+  return USBD_OK;
+}
+
+/**
+  * @brief  MuteCtl
+  *         Mute or Unmute the audio current output
+  * @param  cmd: can be 0 to unmute, or 1 to mute.
+  * @retval AUDIO_OK if all operations succeed, AUDIO_FAIL else.
+  */
+static uint8_t  MuteCtl      (uint8_t cmd)
+{
+  /* Call low layer mute setting function */  
+  if (EVAL_AUDIO_Mute(cmd) != 0)
+  {
+    return USBD_FAIL;
+  }
+  
+  return USBD_OK;
+}
+
+/**
 * @brief  usbd_audio_Init
 *         Initializes the AUDIO interface.
 * @param  pdev: device instance
@@ -346,7 +388,7 @@ static uint8_t  usbd_audio_Init (void  *pdev,
               USB_OTG_EP_ISOC);
 
   /* Initialize the Audio output Hardware layer */
-  if (AUDIO_OUT_fops.Init(USBD_AUDIO_FREQ, DEFAULT_VOLUME, 0) != USBD_OK)
+  if (Init(USBD_AUDIO_FREQ, DEFAULT_VOLUME, 0) != USBD_OK)
   {
     return USBD_FAIL;
   }
@@ -354,7 +396,7 @@ static uint8_t  usbd_audio_Init (void  *pdev,
   /* Prepare Out endpoint to receive audio data */
   DCD_EP_PrepareRx(pdev,
                    AUDIO_OUT_EP,
-                   (uint8_t*)IsocOutBuff,                        
+                   get_um_buffer_handle()->um_start->um_buf,                        
                    AUDIO_OUT_PACKET);  
   
   return USBD_OK;
@@ -371,12 +413,6 @@ static uint8_t  usbd_audio_DeInit (void  *pdev,
                                    uint8_t cfgidx)
 { 
   DCD_EP_Close (pdev , AUDIO_OUT_EP);
-  
-  /* DeInitialize the Audio output Hardware layer */
-  if (AUDIO_OUT_fops.DeInit(0) != USBD_OK)
-  {
-    return USBD_FAIL;
-  }
   
   return USBD_OK;
 }
@@ -471,7 +507,7 @@ static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
     if (AudioCtlUnit == AUDIO_OUT_STREAMING_CTRL)
     {/* In this driver, to simplify code, only one unit is manage */
       /* Call the audio interface mute function */
-      AUDIO_OUT_fops.MuteCtl(AudioCtl[0]);
+      MuteCtl(AudioCtl[0]);
       
       /* Reset the AudioCtlCmd variable to prevent re-entering this function */
       AudioCtlCmd = 0;
@@ -506,33 +542,18 @@ static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
 {     
   DataOutCounter++;
   if (epnum == AUDIO_OUT_EP)
-  {    
-    /* Increment the Buffer pointer or roll it back when all buffers are full */
-    if (IsocOutWrPtr >= (IsocOutBuff + (AUDIO_OUT_PACKET * OUT_PACKET_NUM)))
-    {/* All buffers are full: roll back */
-      IsocOutWrPtr = IsocOutBuff;
-    }
-    else
-    {/* Increment the buffer pointer */
-      IsocOutWrPtr += AUDIO_OUT_PACKET;
-    }
-    
+  {
+    uint8_t *next = um_handle_enqueue();
+
     /* Toggle the frame index */  
     ((USB_OTG_CORE_HANDLE*)pdev)->dev.out_ep[epnum].even_odd_frame = 
       (((USB_OTG_CORE_HANDLE*)pdev)->dev.out_ep[epnum].even_odd_frame)? 0:1;
-      
+
     /* Prepare Out endpoint to receive next audio packet */
     DCD_EP_PrepareRx(pdev,
-                     AUDIO_OUT_EP,
-                     (uint8_t*)(IsocOutWrPtr),
-                     AUDIO_OUT_PACKET);
-      
-    /* Trigger the start of streaming only when half buffer is full */
-    if ((PlayFlag == 0) && (IsocOutWrPtr >= (IsocOutBuff + ((AUDIO_OUT_PACKET * OUT_PACKET_NUM) / 2))))
-    {
-      /* Enable start of Streaming */
-      PlayFlag = 1;
-    }
+                  AUDIO_OUT_EP,
+                  next,
+                  AUDIO_OUT_PACKET);
   }
   
   return USBD_OK;
@@ -546,44 +567,7 @@ static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
   * @retval status
   */
 static uint8_t  usbd_audio_SOF (void *pdev)
-{     
-  /* Check if there are available data in stream buffer.
-    In this function, a single variable (PlayFlag) is used to avoid software delays.
-    The play operation must be executed as soon as possible after the SOF detection. */
-  if (PlayFlag)
-  {      
-    /* Start playing received packet */
-    AUDIO_OUT_fops.AudioCmd((uint8_t*)(IsocOutRdPtr),  /* Samples buffer pointer */
-                            AUDIO_OUT_PACKET,          /* Number of samples in Bytes */
-                            AUDIO_CMD_PLAY);           /* Command to be processed */
-    
-    /* Increment the Buffer pointer or roll it back when all buffers all full */  
-    if (IsocOutRdPtr >= (IsocOutBuff + (AUDIO_OUT_PACKET * OUT_PACKET_NUM)))
-    {/* Roll back to the start of buffer */
-      IsocOutRdPtr = IsocOutBuff;
-    }
-    else
-    {/* Increment to the next sub-buffer */
-      IsocOutRdPtr += AUDIO_OUT_PACKET;
-    }
-    
-    /* If all available buffers have been consumed, stop playing */
-    if (IsocOutRdPtr == IsocOutWrPtr)
-    {    
-      /* Pause the audio stream */
-      AUDIO_OUT_fops.AudioCmd((uint8_t*)(IsocOutBuff),   /* Samples buffer pointer */
-                              AUDIO_OUT_PACKET,          /* Number of samples in Bytes */
-                              AUDIO_CMD_PAUSE);          /* Command to be processed */
-      
-      /* Stop entering play loop */
-      PlayFlag = 0;
-      
-      /* Reset buffer pointers */
-      IsocOutRdPtr = IsocOutBuff;
-      IsocOutWrPtr = IsocOutBuff;
-    }
-  }
-  
+{
   return USBD_OK;
 }
 

@@ -77,9 +77,11 @@ typedef void (*um_play_fnc)(uint32_t addr, uint32_t size);
 typedef uint32_t (*um_pause_resume_fnc)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 
 void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume );
-void um_handle_enqueue(uint8_t *data, uint32_t size);
+uint8_t *um_handle_enqueue();
 void audio_dma_complete_cb();
 
 void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk);
+
+struct um_buffer_handle *get_um_buffer_handle();
 
 #endif
