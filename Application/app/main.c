@@ -1,12 +1,8 @@
 #include "stm32f4xx.h"
 #include "stm324xg_eval.h"
 #include "stm32f4_pwm_timer.h"
-#include "stm32f4_adc_driver.h"
 
-/*#include "usbd_cdc_core.h"
-#include "usbd_usr.h"
-#include "usb_conf.h"
-#include "usbd_desc.h"*/
+#include "audio_buffer.h"
 
 #include "usbd_audio_core.h"
 #include "usbd_usr.h"
@@ -19,6 +15,7 @@
 extern void stm32_cfft_convert(int16_t *buf, uint16_t fft_size);
 extern void stm32_normalise_function(int16_t *buf, uint16_t size);
 void Delay(__IO uint32_t nTime);
+void usb_sampling_wrapper(int16_t *samples, uint16_t size);
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
 
@@ -61,20 +58,13 @@ static struct source_config_music music =
   .base.type = SOURCE_TYPE_MUSIC,
   .is_fft_conversion_async = false,
   .is_sampling_async = true,
-  .sampling_fnc = adc_sampling_wrapper,
+  .sampling_fnc = usb_sampling_wrapper,
   .fft_convert_fnc = stm32_cfft_convert,
   .normalise_fnc = stm32_normalise_function
 };
 
 void USBAudioInit()
 {
-/*  USBD_Init(&USB_OTG_dev,
-#ifdef USE_USB_OTG_HS
-            USB_OTG_HS_CORE_ID,
-#else
-            USB_OTG_FS_CORE_ID,
-#endif
-            &USR_desc, &USBD_CDC_cb, &USR_cb);*/
   USBD_Init(&USB_OTG_dev,
 #ifdef USE_USB_OTG_HS
             USB_OTG_HS_CORE_ID,
@@ -114,9 +104,6 @@ int main(void)
   }
 
   timer_pwm_init();
-  adc_init();
-
-  adc_on();
 
   ws2812_adapter = adapter_init(&fn, HSV, CONFIG_DELAY_MS);
   adapter_set_source_originator_from_config(ws2812_adapter, first, second, third);
@@ -154,11 +141,14 @@ void led_strip_timer_ISRHandler()
   ws2812_adapter->base.timer_interrupt(&ws2812_adapter->base);
 }
 
-void adc_dma_ISRHandler()
+void usb_samping_finish()
 {
-  ADC_ContinuousModeCmd(ADC1, DISABLE);
-  ADC_DMACmd(ADC1, DISABLE);
   sampling_async_finish(ws2812_adapter->aggregator->first);
+}
+
+void usb_sampling_wrapper(int16_t *samples, uint16_t size)
+{
+  um_buffer_handle_register_listener(samples, size, usb_samping_finish);
 }
 
 #ifdef  USE_FULL_ASSERT
