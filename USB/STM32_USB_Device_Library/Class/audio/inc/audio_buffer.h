@@ -6,6 +6,8 @@
 #define NUMBER_OF_USB_FRAMES_IN_UM_NODE     4
 #define UM_NODE_COUNT                       4
 
+#define UM_BUFFER_LISTENER_COUNT            4
+
 #define CW_LOWER_BOUND                      1
 #define CW_UPPER_BOUND                      3
 
@@ -41,6 +43,15 @@ struct um_node
     enum um_node_state um_node_state;
 };
 
+struct um_buffer_listener
+{
+    int16_t *dst;
+    uint16_t dst_offset;
+    uint16_t samples_required;
+
+    void (*listener_finish)();
+};
+
 struct um_buffer_handle
 {
     struct um_node *um_read;
@@ -49,16 +60,26 @@ struct um_buffer_handle
     enum um_buffer_state um_buffer_state;
     uint8_t um_abs_offset;
     uint8_t um_buffer_flags;
+    struct um_buffer_listener listeners[UM_BUFFER_LISTENER_COUNT];
 
     void (*um_play)(uint32_t addr, uint32_t size);
     uint32_t (*um_pause_resume)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 };
 
+struct usb_sample_struct
+{
+    uint16_t left_channel;
+    uint16_t right_channel;
+};
+
+typedef void (*listener_job_finish)();
 typedef void (*um_play_fnc)(uint32_t addr, uint32_t size);
 typedef uint32_t (*um_pause_resume_fnc)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 
 void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume );
 void um_handle_enqueue(uint8_t *data, uint32_t size);
 void audio_dma_complete_cb();
+
+void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk);
 
 #endif
