@@ -2,8 +2,9 @@
 #define __STM32_PWM_TIMER_INIT__
 
 #include <stdbool.h>
+#include ".config.h"
 
-#define IFNUM   2
+#define IFNUM   CONFIG_IFNUM
 
 struct hw_lut
 {

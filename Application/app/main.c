@@ -22,7 +22,7 @@ __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
 
 static __IO int32_t TimingDelay;
 
-static struct adapter *ws2812_adapter[2] = {NULL, NULL};
+struct adapter *ws2812_adapter[CONFIG_IFNUM] = {NULL, NULL};
 
 static struct source_config_function config0 =
 {
@@ -106,7 +106,7 @@ int main(void)
 
   timer_pwm_init();
 
-  ws2812_adapter[0] = adapter_init(&fn, RGB, 118, CONFIG_DELAY_MS);
+  ws2812_adapter[0] = adapter_init(&fn, RGB, 118, 1);
   adapter_set_source_originator_from_config(ws2812_adapter[0], first, second, third);
   adapter_set_driver_id(ws2812_adapter[0], hw[0].id);
   adapter_start(ws2812_adapter[0]);

@@ -31,15 +31,13 @@ mainmenu "LedStrip App Configuration"
   endmenu
 
   menu "Application"
-    config DELAY_MS
-      int "Delay between adapter process iterations"
-      default 5
-      range 0 50000
+    config IFNUM
+      int "The number of ledstrip interface supported by current build"
+      default 2
+      range 0 4294967295
       help
-        There are loop inside adapter_process function. This config defines
-        the delay (in ms) between two consequence iterations. This delay will
-        change speed, with witch coding effect will be displayed. You can apply
-        any value in region [0...50000]
+        The number of the interfaces, for which the static memory will be allocated
+        This can be any unsigned 32-bit value
   endmenu
 
   menu "WS2812 driver"
