@@ -4,12 +4,44 @@
 #include "usbd_core.h"
 #include "usbd_audio_core.h"
 
-extern void led_strip_dma_ISRHandler();
-extern void led_strip_timer_ISRHandler();
+#include "stm32f4_pwm_timer.h"
+
+extern void led_strip_dma_ISRHandler(int id);
+extern void led_strip_timer_ISRHandler(int id);
 extern uint32_t USBD_OTG_ISR_Handler (USB_OTG_CORE_HANDLE *pdev);
 extern void TimingDelay_Decrement(void);
 
 extern USB_OTG_CORE_HANDLE USB_OTG_dev;
+
+static uint32_t find_id_by_dma_handler(DMA_Stream_TypeDef *dma_it)
+{
+  uint8_t i;
+
+  for(i = 0; i < IFNUM; i++)
+  {
+    if(hw[i].dma == dma_it)
+    {
+      return hw[i].id;
+    }
+  }
+
+  return 0xDEADBEEF;
+}
+
+static uint32_t find_id_by_tim_handler(TIM_TypeDef *tim_it)
+{
+  uint8_t i;
+
+  for(i = 0; i < IFNUM; i++)
+  {
+    if(hw[i].tim_base == tim_it)
+    {
+      return hw[i].id;
+    }
+  }
+
+  return 0xDEADBEEF;
+}
 
 /******************************************************************************/
 /*            Cortex-M4 Processor Exceptions Handlers                         */
@@ -199,28 +231,82 @@ void EXTI1_IRQHandler(void)
 
 void DMA1_Stream5_IRQHandler(void)
 {
-        if(DMA_GetITStatus(DMA1_Stream5, DMA_IT_HTIF5))
-        {
-                DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_HTIF5);
+  uint32_t id = find_id_by_dma_handler(DMA1_Stream5);
+  if(id == 0xDEADBEEF)
+  {
+    //TODO: Add message to log about spur interrupt
+    return;
+  }
 
-                led_strip_dma_ISRHandler();
-        }
-        else if (DMA_GetITStatus(DMA1_Stream5, DMA_IT_TCIF5))
-        {
-                DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_TCIF5);
+  if(DMA_GetITStatus(DMA1_Stream5, DMA_IT_HTIF5))
+  {
+          DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_HTIF5);
 
-                led_strip_dma_ISRHandler();
-        }
+          led_strip_dma_ISRHandler(id);
+  }
+  else if (DMA_GetITStatus(DMA1_Stream5, DMA_IT_TCIF5))
+  {
+          DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_TCIF5);
+
+          led_strip_dma_ISRHandler(id);
+  }
+}
+
+void DMA1_Stream3_IRQHandler(void)
+{
+  uint32_t id = find_id_by_dma_handler(DMA1_Stream3);
+  if(id == 0xDEADBEEF)
+  {
+    //TODO: Add message to log about spur interrupt
+    return;
+  }
+
+  if(DMA_GetITStatus(DMA1_Stream3, DMA_IT_HTIF3))
+  {
+          DMA_ClearITPendingBit(DMA1_Stream3, DMA_IT_HTIF3);
+
+          led_strip_dma_ISRHandler(id);
+  }
+  else if (DMA_GetITStatus(DMA1_Stream3, DMA_IT_TCIF3))
+  {
+          DMA_ClearITPendingBit(DMA1_Stream3, DMA_IT_TCIF3);
+
+          led_strip_dma_ISRHandler(id);
+  }
 }
 
 void TIM8_TRG_COM_TIM14_IRQHandler(void)
 {
-        if (TIM_GetITStatus(TIM14, TIM_IT_CC1) != RESET)
-        {
-                TIM_ClearITPendingBit(TIM14, TIM_IT_CC1);
+  uint32_t id = find_id_by_tim_handler(TIM14);
+  if(id == 0xDEADBEEF)
+  {
+    //TODO: Add message to log about spur interrupt
+    return;
+  }
 
-                led_strip_timer_ISRHandler();
-        }
+  if (TIM_GetITStatus(TIM14, TIM_IT_CC1) != RESET)
+  {
+          TIM_ClearITPendingBit(TIM14, TIM_IT_CC1);
+
+          led_strip_timer_ISRHandler(id);
+  }
+}
+
+void TIM8_UP_TIM13_IRQHandler(void)
+{
+  uint32_t id = find_id_by_tim_handler(TIM13);
+  if(id == 0xDEADBEEF)
+  {
+    //TODO: Add message to log about spur interrupt
+    return;
+  }
+
+  if (TIM_GetITStatus(TIM13, TIM_IT_CC1) != RESET)
+  {
+          TIM_ClearITPendingBit(TIM13, TIM_IT_CC1);
+
+          led_strip_timer_ISRHandler(id);
+  }
 }
 
 void DMA2_Stream0_IRQHandler(void)

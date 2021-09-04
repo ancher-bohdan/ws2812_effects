@@ -14,20 +14,21 @@
 
 extern void stm32_cfft_convert(int16_t *buf, uint16_t fft_size);
 extern void stm32_normalise_function(int16_t *buf, uint16_t size);
-void Delay(__IO uint32_t nTime);
+bool Delay_non_blocking(uint32_t id, __IO uint32_t timeout);
+void Delay_blocking(__IO uint32_t timeout);
 void usb_sampling_wrapper(int16_t *samples, uint16_t size);
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
 
-static __IO uint32_t TimingDelay;
+static __IO int32_t TimingDelay;
 
-static struct adapter *ws2812_adapter = NULL;
+static struct adapter *ws2812_adapter[2] = {NULL, NULL};
 
 static struct source_config_function config0 =
 {
   .base.type = SOURCE_TYPE_LINEAR,
   .k = 1,
-  .b = 1,
+  .b = 0,
   .y_max = 255,
   .change_step_b = 1,
   .change_step_k = 0
@@ -37,7 +38,7 @@ static struct source_config_function config1 =
 {
   .base.type = SOURCE_TYPE_LINEAR,
   .k = 0,
-  .b = 100,
+  .b = 0,
   .y_max = 255,
   .change_step_b = 0,
   .change_step_k = 0
@@ -47,7 +48,7 @@ static struct source_config_function config2 =
 {
   .base.type = SOURCE_TYPE_LINEAR,
   .k = 0,
-  .b = 100,
+  .b = 0,
   .y_max = 255,
   .change_step_b = 0,
   .change_step_k = 0
@@ -80,13 +81,13 @@ static struct ws2812_operation_fn_table fn =
   .hw_stop_dma = stop_dma_wrapper,
   .hw_start_timer = TIM_start,
   .hw_stop_timer = TIM_stop,
-  .hw_delay = Delay
+  .hw_delay = Delay_non_blocking
 };
 
 int main(void)
 {
   RCC_ClocksTypeDef RCC_Clocks;
-  struct source_config *first = (struct source_config *)(&music);
+  struct source_config *first = (struct source_config *)(&config0);
   struct source_config *second = (struct source_config *)(&config1);
   struct source_config *third = (struct source_config *)(&config2);
 
@@ -105,45 +106,78 @@ int main(void)
 
   timer_pwm_init();
 
-  ws2812_adapter = adapter_init(&fn, HSV, CONFIG_DELAY_MS);
-  adapter_set_source_originator_from_config(ws2812_adapter, first, second, third);
+  ws2812_adapter[0] = adapter_init(&fn, RGB, 118, CONFIG_DELAY_MS);
+  adapter_set_source_originator_from_config(ws2812_adapter[0], first, second, third);
+  adapter_set_driver_id(ws2812_adapter[0], hw[0].id);
+  adapter_start(ws2812_adapter[0]);
+
+  config0.y_max = 360;
+  config1.b = 100;
+  config2.b = 100;
+
+  ws2812_adapter[1] = adapter_init(&fn, HSV, 36, 100);
+  adapter_set_source_originator_from_config(ws2812_adapter[1], first, second, third);
+  adapter_set_driver_id(ws2812_adapter[1], hw[1].id);
+  adapter_start(ws2812_adapter[1]);
 
   USBAudioInit();
 
   while (1)
   {
-    adapter_process(ws2812_adapter);
+    adapter_process(ws2812_adapter, 2);
   }
 }
 
-void Delay(__IO uint32_t nTime)
+void Delay_blocking(__IO uint32_t timeout)
 {
-  TimingDelay = nTime;
+  TimingDelay = (int32_t)(timeout & 0x7FFFFFFF);
   
   while(TimingDelay != 0);
 }
 
+bool Delay_non_blocking(uint32_t id, __IO uint32_t timeout)
+{
+  if(!hw[id].delay_is_waiting)
+  {
+    hw[id].delay_counter = (int32_t)(timeout & 0x7FFFFFFF);
+    hw[id].delay_is_waiting = true;
+  }
+
+  if(hw[id].delay_counter <= 0)
+  {
+    hw[id].delay_is_waiting = false;
+    return true;
+  }
+
+  return false;
+}
+
 void TimingDelay_Decrement(void)
 {
-  if (TimingDelay != 0x00)
-  { 
-    TimingDelay--;
+  uint8_t i = 0;
+  
+  TimingDelay--;
+
+  for(i = 0; i < IFNUM; i++)
+  {
+    hw[i].delay_counter--;
   }
+
 }
 
-void led_strip_dma_ISRHandler()
+void led_strip_dma_ISRHandler(int id)
 {
-  ws2812_adapter->base.dma_interrupt(&ws2812_adapter->base);
+  ws2812_adapter[id]->base.dma_interrupt(&(ws2812_adapter[id]->base));
 }
 
-void led_strip_timer_ISRHandler()
+void led_strip_timer_ISRHandler(int id)
 {
-  ws2812_adapter->base.timer_interrupt(&ws2812_adapter->base);
+  ws2812_adapter[id]->base.timer_interrupt(&(ws2812_adapter[id]->base));
 }
 
 void usb_samping_finish()
 {
-  sampling_async_finish(ws2812_adapter->aggregator->first);
+  sampling_async_finish(ws2812_adapter[0]->aggregator->first);
 }
 
 void usb_sampling_wrapper(int16_t *samples, uint16_t size)

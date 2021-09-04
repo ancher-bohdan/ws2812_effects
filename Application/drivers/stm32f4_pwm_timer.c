@@ -2,7 +2,16 @@
 
     /**TIM2 GPIO Configuration   
     PA0-WKUP     ------> TIM2_CH1
+    PD13         ------> TIM4_CH2
     */
+
+#include "stm32f4_pwm_timer.h"
+
+struct hw_lut hw[IFNUM] = 
+{       //id    tim     tim_base        dma_stream      DMA_HT_IT_MASK          DMA_TC_IT_MASK          delay_counter    delay_is_waiting
+        {0,     TIM2,   TIM14,          DMA1_Stream5,   DMA_IT_HTIF5,           DMA_IT_TCIF5,           0,               false},
+        {1,     TIM4,   TIM13,          DMA1_Stream3,   DMA_IT_HTIF3,           DMA_IT_TCIF3,           0,               false}
+};
 
 static void gpio_init()
 {
@@ -18,6 +27,13 @@ static void gpio_init()
         GPIO_Init(GPIOA, &GPIO_InitStructure);
 
         GPIO_PinAFConfig(GPIOA, GPIO_PinSource0, GPIO_AF_TIM2);
+
+        RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+
+        GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
+        GPIO_Init(GPIOD, &GPIO_InitStructure);
+
+        GPIO_PinAFConfig(GPIOD, GPIO_PinSource13, GPIO_AF_TIM4);
 }
 
 static void tim_init()
@@ -46,6 +62,16 @@ static void tim_init()
         TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Enable);
 
         TIM_ARRPreloadConfig(TIM2, ENABLE);
+
+        RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+
+        TIM_TimeBaseInit(TIM4, &TIM_TimeBaseStructure);
+
+        TIM_OC2Init(TIM4, &TIM_OCInitStructure);
+
+        TIM_OC2PreloadConfig(TIM4, TIM_OCPreload_Enable);
+
+        TIM_ARRPreloadConfig(TIM4, ENABLE);
 }
 
 static void dma_init()
@@ -70,7 +96,6 @@ static void dma_init()
         DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
         DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
         DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-
         DMA_Init(DMA1_Stream5, &DMA_InitStructure);
 
         TIM_DMACmd(TIM2, TIM_DMA_CC1, ENABLE);
@@ -79,6 +104,16 @@ static void dma_init()
         NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
         NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
         NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+        NVIC_Init(&NVIC_InitStructure);
+
+        DMA_DeInit(DMA1_Stream3);
+        DMA_InitStructure.DMA_Channel = DMA_Channel_2;
+        DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&(TIM4->CCR2));
+        DMA_Init(DMA1_Stream3, &DMA_InitStructure);
+
+        TIM_DMACmd(TIM4, TIM_DMA_CC2, ENABLE);
+
+        NVIC_InitStructure.NVIC_IRQChannel = DMA1_Stream3_IRQn;
         NVIC_Init(&NVIC_InitStructure);
 }
 
@@ -103,7 +138,7 @@ static void tim_time_base_init()
         TIM_TimeBaseStructure.TIM_ClockDivision = 0;
         TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
 
-        TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
+        TIM_TimeBaseInit(TIM14, &TIM_TimeBaseStructure);
 
         TIM_PrescalerConfig(TIM14, PrescalerValue, TIM_PSCReloadMode_Immediate);
 
@@ -118,6 +153,22 @@ static void tim_time_base_init()
         TIM_ITConfig(TIM14, TIM_IT_CC1, ENABLE);
 
         TIM_Cmd(TIM14, ENABLE);
+
+        RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM13, ENABLE);
+        
+        NVIC_InitStructure.NVIC_IRQChannel = TIM8_UP_TIM13_IRQn;
+        NVIC_Init(&NVIC_InitStructure);
+
+        TIM_TimeBaseInit(TIM13, &TIM_TimeBaseStructure);
+
+        TIM_PrescalerConfig(TIM13, PrescalerValue, TIM_PSCReloadMode_Immediate);
+
+        TIM_OC1Init(TIM13, &TIM_OCInitStructure);
+        TIM_OC1PreloadConfig(TIM13, TIM_OCPreload_Disable);
+
+        TIM_ITConfig(TIM13, TIM_IT_CC1, ENABLE);
+
+        TIM_Cmd(TIM13, ENABLE);
 }
 
 void timer_pwm_init()
@@ -131,29 +182,56 @@ void timer_pwm_init()
         tim_time_base_init();
 }
 
-void TIM_start()
+void TIM_start(uint32_t driver_id)
 {
-        TIM_Cmd(TIM14, ENABLE);
+        TIM_Cmd(hw[driver_id].tim_base, ENABLE);
 }
 
-void TIM_stop()
+void TIM_stop(uint32_t driver_id)
 {
-        TIM_Cmd(TIM14, DISABLE);
+        TIM_Cmd(hw[driver_id].tim_base, DISABLE);
 }
 
-void start_dma_wrapper(void *ptr, uint16_t size)
+void start_dma_wrapper(uint32_t driver_id, void *ptr, uint16_t size)
 {
-        DMA1_Stream5->M0AR = (uint32_t)ptr;
-        DMA1_Stream5->NDTR = (uint32_t)size;
-        DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_HTIF5 | DMA_IT_TCIF5);
-        DMA_ITConfig(DMA1_Stream5, DMA_IT_TC | DMA_IT_HT, ENABLE);
-        DMA_Cmd(DMA1_Stream5, ENABLE);
-        TIM_Cmd(TIM2, ENABLE);
+        hw[driver_id].dma->M0AR = (uint32_t)ptr;
+        hw[driver_id].dma->NDTR = (uint32_t)size;
+        DMA_ClearITPendingBit(hw[driver_id].dma, hw[driver_id].DMA_HTIF | hw[driver_id].DMA_TCIF);
+        DMA_ITConfig(hw[driver_id].dma, DMA_IT_TC | DMA_IT_HT, ENABLE);
+        DMA_Cmd(hw[driver_id].dma, ENABLE);
+        TIM_Cmd(hw[driver_id].tim, ENABLE);
 }
 
-void stop_dma_wrapper()
+void stop_dma_wrapper(uint32_t driver_id)
 {
-        DMA_ITConfig(DMA1_Stream5, DMA_IT_TC | DMA_IT_HT, DISABLE);
-        DMA_Cmd(DMA1_Stream5, DISABLE);
-        TIM_Cmd(TIM2, DISABLE);
+        DMA_ITConfig(hw[driver_id].dma, DMA_IT_TC | DMA_IT_HT, DISABLE);
+        DMA_Cmd(hw[driver_id].dma, DISABLE);
+        TIM_Cmd(hw[driver_id].tim, DISABLE);
+}
+
+void TIM13_start()
+{
+        TIM_Cmd(TIM13, ENABLE);
+}
+
+void TIM13_stop()
+{
+        TIM_Cmd(TIM13, DISABLE);
+}
+
+void start_dma3_wrapper(void *ptr, uint16_t size)
+{
+        DMA1_Stream3->M0AR = (uint32_t)ptr;
+        DMA1_Stream3->NDTR = (uint32_t)size;
+        DMA_ClearITPendingBit(DMA1_Stream3, DMA_IT_HTIF3 | DMA_IT_TCIF3);
+        DMA_ITConfig(DMA1_Stream3, DMA_IT_TC | DMA_IT_HT, ENABLE);
+        DMA_Cmd(DMA1_Stream3, ENABLE);
+        TIM_Cmd(TIM4, ENABLE);
+}
+
+void stop_dma3_wrapper()
+{
+        DMA_ITConfig(DMA1_Stream3, DMA_IT_TC | DMA_IT_HT, DISABLE);
+        DMA_Cmd(DMA1_Stream3, DISABLE);
+        TIM_Cmd(TIM4, DISABLE);
 }
