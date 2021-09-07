@@ -107,7 +107,7 @@ int main(void)
   timer_pwm_init();
 
   ws2812_adapter[0] = adapter_init(&fn, RGB, 118, 1);
-  adapter_set_source_originator_from_config(ws2812_adapter[0], first, second, third);
+  make_source_aggregator_from_config(&(ws2812_adapter[0]->aggregator), first, second, third);
   adapter_set_driver_id(ws2812_adapter[0], hw[0].id);
   adapter_start(ws2812_adapter[0]);
 
@@ -116,7 +116,7 @@ int main(void)
   config2.b = 100;
 
   ws2812_adapter[1] = adapter_init(&fn, HSV, 36, 100);
-  adapter_set_source_originator_from_config(ws2812_adapter[1], first, second, third);
+  make_source_aggregator_from_config(&(ws2812_adapter[1]->aggregator), first, second, third);
   adapter_set_driver_id(ws2812_adapter[1], hw[1].id);
   adapter_start(ws2812_adapter[1]);
 
@@ -177,7 +177,7 @@ void led_strip_timer_ISRHandler(int id)
 
 void usb_samping_finish()
 {
-  sampling_async_finish(ws2812_adapter[0]->aggregator->first);
+  sampling_async_finish(ws2812_adapter[0]->aggregator.first);
 }
 
 void usb_sampling_wrapper(int16_t *samples, uint16_t size)
