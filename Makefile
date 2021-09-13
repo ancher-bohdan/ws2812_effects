@@ -48,8 +48,9 @@ SOURCES_USB_OTG = $(wildcard USB/STM32_USB_OTG_Driver/src/*.c)
 SOURCES_WS_ADAPTER = $(wildcard Application/ws2812_driver/src/adapter/*.c)
 SOURCES_WS_DRIVER = $(wildcard Application/ws2812_driver/src/driver/*.c)
 SOURCES_WS_SOURCE = $(wildcard Application/ws2812_driver/src/source/*.c)
+SOURCES_UI = $(wildcard Application/UI/console/*.c)
 
-C_SOURCES = $(SOURCES_TMP) $(SOURCES_STD_PERIPH) $(SOURCES_CMSIS) $(SOURCES_APP) $(SOURCES_DRIVERS) $(SOURCES_USB) $(SOURCES_USB_CLASS) $(SOURCES_USB_OTG) $(SOURCES_USB_APP) $(SOURCES_WS_ADAPTER) $(SOURCES_WS_DRIVER) $(SOURCES_WS_SOURCE)
+C_SOURCES = $(SOURCES_TMP) $(SOURCES_STD_PERIPH) $(SOURCES_CMSIS) $(SOURCES_APP) $(SOURCES_DRIVERS) $(SOURCES_USB) $(SOURCES_USB_CLASS) $(SOURCES_USB_OTG) $(SOURCES_USB_APP) $(SOURCES_WS_ADAPTER) $(SOURCES_WS_DRIVER) $(SOURCES_WS_SOURCE) $(SOURCES_UI)
 
 
 # ASM sources
@@ -119,7 +120,8 @@ C_INCLUDES =  \
 -IUSB/STM32_USB_Device_Library/Class/audio/inc \
 -IUSB/STM32_USB_Device_Library/Core/inc \
 -IApplication/usb/audio/inc \
--IApplication/ws2812_driver/inc
+-IApplication/ws2812_driver/inc \
+-IApplication/UI/console
 
 
 # compile gcc flags

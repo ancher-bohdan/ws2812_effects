@@ -10,6 +10,8 @@
 
 #include "adapter/adapter.h"
 
+#include "console.h"
+
 #include <stdbool.h>
 
 extern void stm32_cfft_convert(int16_t *buf, uint16_t fft_size);
@@ -121,6 +123,8 @@ int main(void)
   adapter_start(ws2812_adapter[1]);
 
   USBAudioInit();
+
+  console_init();
 
   while (1)
   {
