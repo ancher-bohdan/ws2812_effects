@@ -214,30 +214,3 @@ void stop_dma_wrapper(uint32_t driver_id)
         DMA_Cmd(hw[driver_id].dma, DISABLE);
         TIM_Cmd(hw[driver_id].tim, DISABLE);
 }
-
-void TIM13_start()
-{
-        TIM_Cmd(TIM13, ENABLE);
-}
-
-void TIM13_stop()
-{
-        TIM_Cmd(TIM13, DISABLE);
-}
-
-void start_dma3_wrapper(void *ptr, uint16_t size)
-{
-        DMA1_Stream3->M0AR = (uint32_t)ptr;
-        DMA1_Stream3->NDTR = (uint32_t)size;
-        DMA_ClearITPendingBit(DMA1_Stream3, DMA_IT_HTIF3 | DMA_IT_TCIF3);
-        DMA_ITConfig(DMA1_Stream3, DMA_IT_TC | DMA_IT_HT, ENABLE);
-        DMA_Cmd(DMA1_Stream3, ENABLE);
-        TIM_Cmd(TIM4, ENABLE);
-}
-
-void stop_dma3_wrapper()
-{
-        DMA_ITConfig(DMA1_Stream3, DMA_IT_TC | DMA_IT_HT, DISABLE);
-        DMA_Cmd(DMA1_Stream3, DISABLE);
-        TIM_Cmd(TIM4, DISABLE);
-}
