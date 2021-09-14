@@ -97,6 +97,9 @@ static void dma_init()
         DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
         DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
         DMA_Init(DMA1_Stream5, &DMA_InitStructure);
+#ifdef CONFIG_BUFFER_COUNT_4
+        DMA_DoubleBufferModeCmd(DMA1_Stream5, ENABLE);
+#endif
 
         TIM_DMACmd(TIM2, TIM_DMA_CC1, ENABLE);
 
@@ -110,7 +113,9 @@ static void dma_init()
         DMA_InitStructure.DMA_Channel = DMA_Channel_2;
         DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&(TIM4->CCR2));
         DMA_Init(DMA1_Stream3, &DMA_InitStructure);
-
+#ifdef CONFIG_BUFFER_COUNT_4
+        DMA_DoubleBufferModeCmd(DMA1_Stream3, ENABLE);
+#endif
         TIM_DMACmd(TIM4, TIM_DMA_CC2, ENABLE);
 
         NVIC_InitStructure.NVIC_IRQChannel = DMA1_Stream3_IRQn;
@@ -195,7 +200,12 @@ void TIM_stop(uint32_t driver_id)
 void start_dma_wrapper(uint32_t driver_id, void *ptr, uint16_t size)
 {
         hw[driver_id].dma->M0AR = (uint32_t)ptr;
+#ifdef CONFIG_BUFFER_COUNT_4
+        hw[driver_id].dma->NDTR = (uint32_t)size >> 1;
+        DMA_DoubleBufferModeConfig(hw[driver_id].dma, (uint32_t)(((uint32_t *)ptr) + (size >> 1)), DMA_Memory_0);
+#elif CONFIG_BUFFER_COUNT_2
         hw[driver_id].dma->NDTR = (uint32_t)size;
+#endif
         DMA_ClearITPendingBit(hw[driver_id].dma, hw[driver_id].DMA_HTIF | hw[driver_id].DMA_TCIF);
         DMA_ITConfig(hw[driver_id].dma, DMA_IT_TC | DMA_IT_HT, ENABLE);
         DMA_Cmd(hw[driver_id].dma, ENABLE);
