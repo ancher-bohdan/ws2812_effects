@@ -138,7 +138,7 @@ static void tim_time_base_init()
         NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
         NVIC_Init(&NVIC_InitStructure);
 
-        TIM_TimeBaseStructure.TIM_Period = 65535;
+        TIM_TimeBaseStructure.TIM_Period = 5000;
         TIM_TimeBaseStructure.TIM_Prescaler = 0;
         TIM_TimeBaseStructure.TIM_ClockDivision = 0;
         TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
