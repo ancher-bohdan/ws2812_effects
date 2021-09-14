@@ -40,7 +40,7 @@ static struct source_config_function config1 =
 {
   .base.type = SOURCE_TYPE_LINEAR,
   .k = 0,
-  .b = 0,
+  .b = 255,
   .y_max = 255,
   .change_step_b = 0,
   .change_step_k = 0
@@ -50,7 +50,7 @@ static struct source_config_function config2 =
 {
   .base.type = SOURCE_TYPE_LINEAR,
   .k = 0,
-  .b = 0,
+  .b = 255,
   .y_max = 255,
   .change_step_b = 0,
   .change_step_k = 0
@@ -114,8 +114,10 @@ int main(void)
   adapter_start(ws2812_adapter[0]);
 
   config0.y_max = 360;
-  config1.b = 100;
-  config2.b = 100;
+  config1.b = 0;
+  config1.y_max = 100;
+  config2.b = 0;
+  config2.y_max = 100;
 
   ws2812_adapter[1] = adapter_init(&fn, HSV, 36, 100);
   make_source_aggregator_from_config(&(ws2812_adapter[1]->aggregator), first, second, third);
