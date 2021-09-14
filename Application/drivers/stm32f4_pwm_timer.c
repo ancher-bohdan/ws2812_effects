@@ -157,8 +157,6 @@ static void tim_time_base_init()
 
         TIM_ITConfig(TIM14, TIM_IT_CC1, ENABLE);
 
-        TIM_Cmd(TIM14, ENABLE);
-
         RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM13, ENABLE);
         
         NVIC_InitStructure.NVIC_IRQChannel = TIM8_UP_TIM13_IRQn;
@@ -172,8 +170,6 @@ static void tim_time_base_init()
         TIM_OC1PreloadConfig(TIM13, TIM_OCPreload_Disable);
 
         TIM_ITConfig(TIM13, TIM_IT_CC1, ENABLE);
-
-        TIM_Cmd(TIM13, ENABLE);
 }
 
 void timer_pwm_init()
