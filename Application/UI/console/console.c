@@ -49,7 +49,7 @@ void set_led_count(int if_id, int ledcount)
 {
   if(if_id >= 0 && if_id < CONFIG_IFNUM)
   {
-    ws2812_adapter[if_id]->base.led_count = ledcount;
+    adapter_set_led_count(ws2812_adapter[if_id], (uint32_t)(ledcount & 0x7FFFFFFF));
   }
 }
 
@@ -57,8 +57,47 @@ void set_delay(int if_id, int delay)
 {
   if(if_id >= 0 && if_id < CONFIG_IFNUM)
   {
-    ws2812_adapter[if_id]->hw_delay = delay;
+    adapter_set_hw_delay(ws2812_adapter[if_id], (uint32_t)(delay & 0x7FFFFFFF));
   }
+}
+
+int set_color_scheme(int if_id, char *new_scheme)
+{
+  if(if_id >= 0 && if_id < CONFIG_IFNUM)
+  {
+    if(!strncmp(new_scheme, "RGB", 3))
+    {
+      return adapter_set_color_scheme(ws2812_adapter[if_id], RGB);
+    }
+    else if(!strncmp(new_scheme, "HSV", 3))
+    {
+      return adapter_set_color_scheme(ws2812_adapter[if_id], HSV);
+    }
+  }
+
+  return -1;
+}
+
+int set_status(int if_id, char *new_status)
+{
+  if((uint32_t)if_id != ws2812_adapter[if_id]->base.id)
+  {
+    //workaround for id override
+    adapter_set_driver_id(ws2812_adapter[if_id], if_id);
+  }
+
+  if(if_id >= 0 && if_id < CONFIG_IFNUM)
+  {
+    if(!strncmp(new_status, "up", 2))
+    {
+      return adapter_set_if_up(ws2812_adapter[if_id]);
+    }
+    else if(!strncmp(new_status, "down", 4))
+    {
+      return adapter_set_if_down(ws2812_adapter[if_id]);
+    }
+  }
+  return -1;
 }
 
 struct source_config_trigonometric user_requested_config;
@@ -149,24 +188,24 @@ void get_ledifs_description(char *dst)
 
     if(ws2812_adapter[i]->is_continue)
     {
-      strncpy(ptr, "up ", 3);
-      ptr += 3;
+      strncpy(ptr, "status = up ", 12);
+      ptr += 12;
     }
     else
     {
-      strncpy(ptr, "down ", 5);
-      ptr += 5;
+      strncpy(ptr, "status = down ", 14);
+      ptr += 14;
     }
 
     if(ws2812_adapter[i]->convert_to_dma == __rgb2dma)
     {
-      strncpy(ptr, "RGB ", 4);
-      ptr += 4;
+      strncpy(ptr, "scheme = RGB ", 13);
+      ptr += 13;
     }
     else if (ws2812_adapter[i]->convert_to_dma == __hsv2dma)
     {
-      strncpy(ptr, "HSV ", 4);
-      ptr += 4;
+      strncpy(ptr, "scheme = HSV ", 13);
+      ptr += 13;
     }
 
     ret = sprintf(ptr, "led_count = %ld delay_ms = %ld\r\n", ws2812_adapter[i]->base.led_count, ws2812_adapter[i]->hw_delay);
@@ -193,7 +232,7 @@ void get_ledifs_description(char *dst)
 
     ret = sprintf(ptr, "\t--config2=");
     ptr += ret;
-    config_active_bank = AGGREGATOR_GET_ACTIVE_BANK(ws2812_adapter[i]->aggregator, 0);
+    config_active_bank = AGGREGATOR_GET_ACTIVE_BANK(ws2812_adapter[i]->aggregator, 2);
     ret = get_source_description(ptr, ws2812_adapter[i]->aggregator.third[config_active_bank]);
     if(ret < 0) return;
     ptr += ret;
@@ -263,6 +302,22 @@ static void command_parser()
                 ret = sscanf(token, "--conf%d", &conf_num);
                 if((ret != 1) || (conf_num < 0) || (conf_num >= 3)) goto error;
                 if(set_config(if_id, conf_num, token + 8) != 0) goto error;
+            }
+            else if(!strncmp(token, "scheme=", 7))
+            {
+                char requested_scheme[4];
+                memset(requested_scheme, 0, 4);
+                ret = sscanf(token, "scheme=%3s", requested_scheme);
+                if(ret != 1) goto error;
+                if(set_color_scheme(if_id, requested_scheme) != 0) goto error;
+            }
+            else if(!strncmp(token, "status=", 7))
+            {
+              char requested_status[5];
+              memset(requested_status, 0, 5);
+              ret = sscanf(token, "status=%4s", requested_status);
+              if(ret != 1) goto error;
+              if(set_status(if_id, requested_status) != 0) goto error;
             }
             else
             {
