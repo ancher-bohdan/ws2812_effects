@@ -53,13 +53,15 @@ static void copy_samples_to_listener(struct um_buffer_listener *listener, struct
         if(listener->samples_required == 0)
         {
             listener_job_finish finish = listener->listener_finish;
+            void *tmp = listener->args;
 
             listener->dst = NULL;
             listener->dst_offset = 0;
             listener->listener_finish = NULL;
+            listener->args = NULL;
             listener->samples_required = 0;
 
-            finish();
+            finish(tmp);
 
             return;
         }
@@ -86,11 +88,12 @@ static void flush_all_listeners()
         if(um_handle.listeners[i].samples_required != 0)
         {
             memset(um_handle.listeners[i].dst + um_handle.listeners[i].dst_offset, 0, um_handle.listeners[i].samples_required);
-            um_handle.listeners[i].listener_finish();
+            um_handle.listeners[i].listener_finish(um_handle.listeners[i].args);
 
             um_handle.listeners[i].dst = NULL;
             um_handle.listeners[i].dst_offset = 0;
             um_handle.listeners[i].listener_finish = NULL;
+            um_handle.listeners[i].args = NULL;
             um_handle.listeners[i].samples_required = 0;
         }
     }
@@ -273,7 +276,7 @@ void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
     audio_dma_complete_cb();
 }
 
-void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk)
+void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk, void *arg)
 {
     uint8_t i = 0;
     for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
@@ -282,6 +285,7 @@ void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener
         {
             um_handle.listeners[i].samples_required = size;
             um_handle.listeners[i].listener_finish = job_finish_cbk;
+            um_handle.listeners[i].args = arg;
             um_handle.listeners[i].dst_offset = 0;
             um_handle.listeners[i].dst = sample;
             return;

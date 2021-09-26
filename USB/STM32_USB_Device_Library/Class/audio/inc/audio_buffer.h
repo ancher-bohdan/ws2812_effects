@@ -49,7 +49,8 @@ struct um_buffer_listener
     uint16_t dst_offset;
     uint16_t samples_required;
 
-    void (*listener_finish)();
+    void (*listener_finish)(void *args);
+    void *args;
 };
 
 struct um_buffer_handle
@@ -72,7 +73,7 @@ struct usb_sample_struct
     uint16_t right_channel;
 };
 
-typedef void (*listener_job_finish)();
+typedef void (*listener_job_finish)(void *args);
 typedef void (*um_play_fnc)(uint32_t addr, uint32_t size);
 typedef uint32_t (*um_pause_resume_fnc)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 
@@ -80,7 +81,7 @@ void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume );
 uint8_t *um_handle_enqueue();
 void audio_dma_complete_cb();
 
-void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk);
+void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk, void *arg);
 
 struct um_buffer_handle *get_um_buffer_handle();
 
