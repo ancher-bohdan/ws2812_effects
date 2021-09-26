@@ -19,7 +19,7 @@ extern void stm32_cfft_convert(int16_t *buf, uint16_t fft_size);
 extern void stm32_normalise_function(int16_t *buf, uint16_t size);
 bool Delay_non_blocking(uint32_t id, __IO uint32_t timeout);
 void Delay_blocking(__IO uint32_t timeout);
-void usb_sampling_wrapper(int16_t *samples, uint16_t size);
+void usb_sampling_wrapper(int16_t *samples, uint16_t size, void (*finish_cbk)(void *arg), void *args);
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
 
@@ -187,17 +187,12 @@ void led_strip_timer_ISRHandler(int id)
 {
   ws2812_adapter[id]->base.timer_interrupt(&(ws2812_adapter[id]->base));
 }
-/*
-void usb_samping_finish()
+
+void usb_sampling_wrapper(int16_t *samples, uint16_t size, void (*finish_cbk)(void *arg), void *args)
 {
-  sampling_async_finish(ws2812_adapter[0]->aggregator.first);
+  um_buffer_handle_register_listener(samples, size, finish_cbk, args);
 }
 
-void usb_sampling_wrapper(int16_t *samples, uint16_t size)
-{
-  um_buffer_handle_register_listener(samples, size, usb_samping_finish);
-}
-*/
 #ifdef  USE_FULL_ASSERT
 
 /**
