@@ -6,7 +6,7 @@
 #define ADC_STAB_DELAY_US 3U
 
 /**ADC1 GPIO Configuration
-PA1     ------> ADC1_IN1
+PA3     ------> ADC1_IN3
 */
 
 static void ADC_GPIO_Init(void)
@@ -15,7 +15,7 @@ static void ADC_GPIO_Init(void)
 
     RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
@@ -46,7 +46,7 @@ static void ADC_DriverInit(void)
     ADC_CommonStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
     ADC_CommonInit(&ADC_CommonStructure);
 
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_480Cycles);
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 1, ADC_SampleTime_480Cycles);
     ADC_DMARequestAfterLastTransferCmd(ADC1, DISABLE);
 }
 
@@ -115,8 +115,29 @@ void adc_start(uint16_t *samples_buffer, uint32_t samples_number)
     ADC_SoftwareStartConv(ADC1);
 }
 
-void adc_sampling_wrapper(int16_t *samples, uint16_t size)
+typedef void (*sampling_cmpl_cbk)(void *arg);
+
+static sampling_cmpl_cbk adc_cbk;
+static void *adc_args;
+
+void adc_sampling_wrapper(int16_t *samples, uint16_t size, void (*finish_cbk)(void *arg), void *args)
 {
+  adc_cbk = finish_cbk;
+  adc_args = args;
   ADC_ContinuousModeCmd(ADC1, ENABLE);
   adc_start((uint16_t *)samples, size);
+}
+
+void DMA2_Stream0_IRQHandler(void)
+{
+  if (DMA_GetITStatus(DMA2_Stream0, DMA_IT_TCIF0))
+  {
+    DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_TCIF0);
+    ADC_ContinuousModeCmd(ADC1, DISABLE);
+    ADC_DMACmd(ADC1, DISABLE);
+    if((adc_cbk != (void *)0) && (adc_args != (void *)0))
+    {
+        adc_cbk(adc_args);
+    }
+  }
 }

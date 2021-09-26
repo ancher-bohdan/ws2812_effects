@@ -1,6 +1,7 @@
 #include "stm32f4xx.h"
 #include "stm324xg_eval.h"
 #include "stm32f4_pwm_timer.h"
+#include "stm32f4_adc_driver.h"
 
 #include "audio_buffer.h"
 
@@ -61,7 +62,7 @@ static struct source_config_music music =
   .base.type = SOURCE_TYPE_MUSIC,
   .is_fft_conversion_async = false,
   .is_sampling_async = true,
-  .sampling_fnc = usb_sampling_wrapper,
+  .sampling_fnc = adc_sampling_wrapper,
   .fft_convert_fnc = stm32_cfft_convert,
   .normalise_fnc = stm32_normalise_function
 };
@@ -107,6 +108,8 @@ int main(void)
   }
 
   timer_pwm_init();
+  adc_init();
+  adc_on();
 
   ws2812_adapter[0] = adapter_init(&fn, RGB, 118, 1);
   make_source_aggregator_from_config(&(ws2812_adapter[0]->aggregator), first, second, third);
@@ -119,7 +122,10 @@ int main(void)
   config2.b = 0;
   config2.y_max = 100;
 
-  ws2812_adapter[1] = adapter_init(&fn, HSV, 36, 100);
+  music.initial_led_count = 118;
+  first = (struct source_config *)(&music);
+
+  ws2812_adapter[1] = adapter_init(&fn, HSV, 118, 1);
   make_source_aggregator_from_config(&(ws2812_adapter[1]->aggregator), first, second, third);
   adapter_set_driver_id(ws2812_adapter[1], hw[1].id);
   adapter_start(ws2812_adapter[1]);
@@ -180,7 +186,7 @@ void led_strip_timer_ISRHandler(int id)
 {
   ws2812_adapter[id]->base.timer_interrupt(&(ws2812_adapter[id]->base));
 }
-
+/*
 void usb_samping_finish()
 {
   sampling_async_finish(ws2812_adapter[0]->aggregator.first);
@@ -190,7 +196,7 @@ void usb_sampling_wrapper(int16_t *samples, uint16_t size)
 {
   um_buffer_handle_register_listener(samples, size, usb_samping_finish);
 }
-
+*/
 #ifdef  USE_FULL_ASSERT
 
 /**

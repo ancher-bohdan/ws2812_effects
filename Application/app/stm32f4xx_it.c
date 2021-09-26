@@ -309,15 +309,6 @@ void TIM8_UP_TIM13_IRQHandler(void)
   }
 }
 
-void DMA2_Stream0_IRQHandler(void)
-{
-  if (DMA_GetITStatus(DMA2_Stream0, DMA_IT_TCIF0))
-  {
-    DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_TCIF0);
-
-  }  
-}
-
 /**
   * @}
   */ 
