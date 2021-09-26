@@ -60,6 +60,7 @@ static struct source_config_function config2 =
 static struct source_config_music music = 
 {
   .base.type = SOURCE_TYPE_MUSIC,
+  .source_name = "MIC",
   .is_fft_conversion_async = false,
   .is_sampling_async = true,
   .sampling_fnc = adc_sampling_wrapper,
