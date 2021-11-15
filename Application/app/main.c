@@ -60,10 +60,10 @@ static struct source_config_function config2 =
 static struct source_config_music music = 
 {
   .base.type = SOURCE_TYPE_MUSIC,
-  .source_name = "MIC",
+  .source_name = "USB",
   .is_fft_conversion_async = false,
   .is_sampling_async = true,
-  .sampling_fnc = adc_sampling_wrapper,
+  .sampling_fnc = usb_sampling_wrapper,
   .fft_convert_fnc = stm32_cfft_convert,
   .normalise_fnc = stm32_normalise_function
 };
@@ -112,7 +112,14 @@ int main(void)
   adc_init();
   adc_on();
 
-  ws2812_adapter[0] = adapter_init(&fn, RGB, 118, 1);
+  music.initial_led_count = 512;
+  first = (struct source_config *)(&music);
+  config1.b = 0;
+  config1.y_max = 100;
+  config2.b = 0;
+  config2.y_max = 100;
+
+  ws2812_adapter[0] = adapter_init(&fn, HSV, 512, 0);
   make_source_aggregator_from_config(&(ws2812_adapter[0]->aggregator), first, second, third);
   adapter_set_driver_id(ws2812_adapter[0], hw[0].id);
   adapter_start(ws2812_adapter[0]);
@@ -123,10 +130,9 @@ int main(void)
   config2.b = 0;
   config2.y_max = 100;
 
-  music.initial_led_count = 118;
-  first = (struct source_config *)(&music);
+  first = (struct source_config *)(&config0);
 
-  ws2812_adapter[1] = adapter_init(&fn, HSV, 118, 1);
+  ws2812_adapter[1] = adapter_init(&fn, RGB, 512, 1);
   make_source_aggregator_from_config(&(ws2812_adapter[1]->aggregator), first, second, third);
   adapter_set_driver_id(ws2812_adapter[1], hw[1].id);
   adapter_start(ws2812_adapter[1]);
